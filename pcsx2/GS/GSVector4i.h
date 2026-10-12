@@ -1,6 +1,13 @@
 // SPDX-FileCopyrightText: 2002-2026 PCSX2 Dev Team
 // SPDX-License-Identifier: GPL-3.0+
 
+// PCSX2 v2.8.2 experimental SSE2 phase 3 integration
+#include "SSE2Compat.h"
+#include "SSSE3CompatSSE2.h"
+
+// PCSX2 2.8.2 SSE2 Fase 7 (integer vectors)
+#include "SSE2Phase7.h"
+
 class alignas(16) GSVector4i
 {
 	static const GSVector4i m_xff[17];
@@ -297,12 +304,12 @@ public:
 
 	__forceinline GSVector4i min_i8(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_min_epi8(m, a));
+		return GSVector4i(pcsx2_sse2_phase7::min_epi8(m, a));
 	}
 
 	__forceinline GSVector4i max_i8(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_max_epi8(m, a));
+		return GSVector4i(pcsx2_sse2_phase7::max_epi8(m, a));
 	}
 
 	__forceinline GSVector4i min_i16(const GSVector4i& a) const
@@ -317,12 +324,12 @@ public:
 
 	__forceinline GSVector4i min_i32(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_min_epi32(m, a));
+		return GSVector4i(pcsx2_sse2_port::min_epi32(m, a));
 	}
 
 	__forceinline GSVector4i max_i32(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_max_epi32(m, a));
+		return GSVector4i(pcsx2_sse2_port::max_epi32(m, a));
 	}
 
 	__forceinline GSVector4i min_u8(const GSVector4i& a) const
@@ -337,46 +344,46 @@ public:
 
 	__forceinline GSVector4i min_u16(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_min_epu16(m, a));
+		return GSVector4i(pcsx2_sse2_phase7::min_epu16(m, a));
 	}
 
 	__forceinline GSVector4i max_u16(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_max_epu16(m, a));
+		return GSVector4i(pcsx2_sse2_phase7::max_epu16(m, a));
 	}
 
 	__forceinline GSVector4i min_u32(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_min_epu32(m, a));
+		return GSVector4i(pcsx2_sse2_port::min_epu32(m, a));
 	}
 
 	__forceinline GSVector4i max_u32(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_max_epu32(m, a));
+		return GSVector4i(pcsx2_sse2_port::max_epu32(m, a));
 	}
 
 	__forceinline u32 minv_s32() const
 	{
-		const __m128i vmin = _mm_min_epi32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
-		return std::min<s32>(_mm_extract_epi32(vmin, 0), _mm_extract_epi32(vmin, 1));
+		const __m128i vmin = pcsx2_sse2_port::min_epi32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
+		return std::min<s32>(pcsx2_sse2_port::extract_epi32<0>(vmin), pcsx2_sse2_port::extract_epi32<1>(vmin));
 	}
 
 	__forceinline u32 minv_u32() const
 	{
-		const __m128i vmin = _mm_min_epu32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
-		return std::min<u32>(_mm_extract_epi32(vmin, 0), _mm_extract_epi32(vmin, 1));
+		const __m128i vmin = pcsx2_sse2_port::min_epu32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
+		return std::min<u32>(pcsx2_sse2_port::extract_epi32<0>(vmin), pcsx2_sse2_port::extract_epi32<1>(vmin));
 	}
 
 	__forceinline u32 maxv_s32() const
 	{
-		const __m128i vmax = _mm_max_epi32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
-		return std::max<s32>(_mm_extract_epi32(vmax, 0), _mm_extract_epi32(vmax, 1));
+		const __m128i vmax = pcsx2_sse2_port::max_epi32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
+		return std::max<s32>(pcsx2_sse2_port::extract_epi32<0>(vmax), pcsx2_sse2_port::extract_epi32<1>(vmax));
 	}
 
 	__forceinline u32 maxv_u32() const
 	{
-		const __m128i vmax = _mm_max_epu32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
-		return std::max<u32>(_mm_extract_epi32(vmax, 0), _mm_extract_epi32(vmax, 1));
+		const __m128i vmax = pcsx2_sse2_port::max_epu32(m, _mm_shuffle_epi32(m, _MM_SHUFFLE(3, 2, 3, 2)));
+		return std::max<u32>(pcsx2_sse2_port::extract_epi32<0>(vmax), pcsx2_sse2_port::extract_epi32<1>(vmax));
 	}
 
 	__forceinline static int min_i16(int a, int b)
@@ -391,13 +398,13 @@ public:
 
 	__forceinline GSVector4i blend8(const GSVector4i& a, const GSVector4i& mask) const
 	{
-		return GSVector4i(_mm_blendv_epi8(m, a, mask));
+		return GSVector4i(pcsx2_sse2_port::blendv_epi8(m, a, mask));
 	}
 
 	template <int mask>
 	__forceinline GSVector4i blend16(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_blend_epi16(m, a, mask));
+		return GSVector4i(pcsx2_sse2_port::blend_epi16<mask>(m, a));
 	}
 
 	template <int mask>
@@ -451,7 +458,7 @@ public:
 
 	__forceinline GSVector4i shuffle8(const GSVector4i& mask) const
 	{
-		return GSVector4i(_mm_shuffle_epi8(m, mask));
+		return GSVector4i(pcsx2_sse2_port::shuffle_epi8(m, mask));
 	}
 
 	__forceinline GSVector4i ps16(const GSVector4i& a) const
@@ -486,12 +493,12 @@ public:
 
 	__forceinline GSVector4i pu32(const GSVector4i& a) const
 	{
-		return GSVector4i(_mm_packus_epi32(m, a));
+		return GSVector4i(pcsx2_sse2_phase7::packus_epi32(m, a));
 	}
 
 	__forceinline GSVector4i pu32() const
 	{
-		return GSVector4i(_mm_packus_epi32(m, m));
+		return GSVector4i(pcsx2_sse2_phase7::packus_epi32(m, m));
 	}
 
 	__forceinline GSVector4i pkl32(const GSVector4i& a) const
@@ -548,7 +555,7 @@ public:
 	{
 #if 0 // _M_SSE >= 0x401 // TODO: compiler bug
 
-		return GSVector4i(_mm_cvtepu8_epi16(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepu8_epi16(m));
 
 #else
 
@@ -566,7 +573,7 @@ public:
 	{
 #if 0 //_M_SSE >= 0x401 // TODO: compiler bug
 
-		return GSVector4i(_mm_cvtepu16_epi32(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepu16_epi32(m));
 
 #else
 
@@ -584,7 +591,7 @@ public:
 	{
 #if 0 //_M_SSE >= 0x401 // TODO: compiler bug
 
-		return GSVector4i(_mm_cvtepu32_epi64(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepu32_epi64(m));
 
 #else
 
@@ -615,12 +622,12 @@ public:
 
 	__forceinline GSVector4i i8to16() const
 	{
-		return GSVector4i(_mm_cvtepi8_epi16(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepi8_epi16(m));
 	}
 
 	__forceinline GSVector4i u8to16() const
 	{
-		return GSVector4i(_mm_cvtepu8_epi16(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepu8_epi16(m));
 	}
 
 	__forceinline GSVector4i i8to32() const
@@ -645,12 +652,12 @@ public:
 
 	__forceinline GSVector4i i16to32() const
 	{
-		return GSVector4i(_mm_cvtepi16_epi32(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepi16_epi32(m));
 	}
 
 	__forceinline GSVector4i u16to32() const
 	{
-		return GSVector4i(_mm_cvtepu16_epi32(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepu16_epi32(m));
 	}
 
 	__forceinline GSVector4i i16to64() const
@@ -665,12 +672,12 @@ public:
 
 	__forceinline GSVector4i i32to64() const
 	{
-		return GSVector4i(_mm_cvtepi32_epi64(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepi32_epi64(m));
 	}
 
 	__forceinline GSVector4i u32to64() const
 	{
-		return GSVector4i(_mm_cvtepu32_epi64(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepu32_epi64(m));
 	}
 
 	template <int i>
@@ -682,7 +689,7 @@ public:
 	template <int i>
 	__forceinline GSVector4i srl(const GSVector4i& v)
 	{
-		return GSVector4i(_mm_alignr_epi8(v.m, m, i));
+		return GSVector4i(pcsx2_sse2_port::alignr_epi8<i>(v.m, m));
 	}
 
 	template <int i>
@@ -852,7 +859,7 @@ public:
 
 	__forceinline GSVector4i abs32() const
 	{
-		return GSVector4i(_mm_abs_epi32(m));
+		return GSVector4i(pcsx2_sse2_port::abs_epi32(m));
 	}
 
 	__forceinline GSVector4i add8(const GSVector4i& v) const
@@ -872,7 +879,7 @@ public:
 
 	__forceinline GSVector4i hadd32(const GSVector4i& v) const
 	{
-		return GSVector4i(_mm_hadd_epi32(m, v.m));
+		return GSVector4i(pcsx2_sse2_phase7::hadd_epi32(m, v.m));
 	}
 
 	__forceinline GSVector4i adds8(const GSVector4i& v) const
@@ -887,7 +894,7 @@ public:
 
 	__forceinline GSVector4i hadds16(const GSVector4i& v) const
 	{
-		return GSVector4i(_mm_hadds_epi16(m, v.m));
+		return GSVector4i(pcsx2_sse2_phase7::hadds_epi16(m, v.m));
 	}
 
 	__forceinline GSVector4i addus8(const GSVector4i& v) const
@@ -917,7 +924,7 @@ public:
 
 	__forceinline GSVector4i hsub32(const GSVector4i& v) const
 	{
-		return GSVector4i(_mm_hsub_epi32(m, v.m));
+		return GSVector4i(pcsx2_sse2_phase7::hsub_epi32(m, v.m));
 	}
 
 	__forceinline GSVector4i subs8(const GSVector4i& v) const
@@ -967,7 +974,7 @@ public:
 
 	__forceinline GSVector4i mul16hrs(const GSVector4i& v) const
 	{
-		return GSVector4i(_mm_mulhrs_epi16(m, v.m));
+		return GSVector4i(pcsx2_sse2_port::mulhrs_epi16(m, v.m));
 	}
 
 	GSVector4i madd(const GSVector4i& v) const
@@ -1020,7 +1027,7 @@ public:
 
 		GSVector4i t = *this ^ v;
 
-		return _mm_testz_si128(t, t) != 0;
+		return pcsx2_sse2_port::testz_si128(t, t) != 0;
 	}
 
 	__forceinline GSVector4i eq8(const GSVector4i& v) const
@@ -1040,7 +1047,7 @@ public:
 
 	__forceinline GSVector4i eq64(const GSVector4i& v) const
 	{
-		return GSVector4i(_mm_cmpeq_epi64(m, v.m));
+		return GSVector4i(pcsx2_sse2_phase7::cmpeq_epi64(m, v.m));
 	}
 
 	__forceinline GSVector4i neq8(const GSVector4i& v) const
@@ -1133,19 +1140,19 @@ public:
 
 	__forceinline bool allfalse() const
 	{
-		return _mm_testz_si128(m, m) != 0;
+		return pcsx2_sse2_port::testz_si128(m, m) != 0;
 	}
 
 	template <int i>
 	__forceinline GSVector4i insert8(int a) const
 	{
-		return GSVector4i(_mm_insert_epi8(m, a, i));
+		return GSVector4i(pcsx2_sse2_phase7::insert_epi8<i>(m, a));
 	}
 
 	template <int i>
 	__forceinline int extract8() const
 	{
-		return _mm_extract_epi8(m, i);
+		return pcsx2_sse2_phase7::extract_epi8<i>(m);
 	}
 
 	template <int i>
@@ -1163,7 +1170,7 @@ public:
 	template <int i>
 	__forceinline GSVector4i insert32(int a) const
 	{
-		return GSVector4i(_mm_insert_epi32(m, a, i));
+		return GSVector4i(pcsx2_sse2_phase7::insert_epi32<i>(m, a));
 	}
 
 	template <int i>
@@ -1172,13 +1179,13 @@ public:
 		if (i == 0)
 			return GSVector4i::store(*this);
 
-		return _mm_extract_epi32(m, i);
+		return pcsx2_sse2_port::extract_epi32<i>(m);
 	}
 
 	template <int i>
 	__forceinline GSVector4i insert64(s64 a) const
 	{
-		return GSVector4i(_mm_insert_epi64(m, a, i));
+		return GSVector4i(pcsx2_sse2_phase7::insert_epi64<i>(m, a));
 	}
 
 	template <int i>
@@ -1187,7 +1194,7 @@ public:
 		if (i == 0)
 			return GSVector4i::storeq(*this);
 
-		return _mm_extract_epi64(m, i);
+		return pcsx2_sse2_phase7::extract_epi64<i>(m);
 	}
 
 	template <int src, class T>

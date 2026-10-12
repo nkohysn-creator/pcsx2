@@ -1,6 +1,13 @@
 // SPDX-FileCopyrightText: 2002-2026 PCSX2 Dev Team
 // SPDX-License-Identifier: GPL-3.0+
 
+// PCSX2 2.8.2 - SSE2 phase 5 float bitwise compatibility
+#include "SSE2Compat.h"
+#include "SSE2FloatCompat.h"
+
+// PCSX2 2.8.2 SSE2 Fase 8 ROUNDPS/DPPS (experimental)
+#include "SSE2Phase8.h"
+
 class alignas(16) GSVector4
 {
 	struct cxpr_init_tag {};
@@ -254,7 +261,7 @@ public:
 	template <int mode>
 	__forceinline GSVector4 round() const
 	{
-		return GSVector4(_mm_round_ps(m, mode));
+		return GSVector4(pcsx2_sse2_phase8::round_ps<mode>(m));
 	}
 
 	__forceinline GSVector4 floor() const
@@ -403,7 +410,7 @@ public:
 	template <int i>
 	__forceinline GSVector4 dp(const GSVector4& v) const
 	{
-		return GSVector4(_mm_dp_ps(m, v.m, i));
+		return GSVector4(pcsx2_sse2_phase8::dp_ps<i>(m, v.m));
 	}
 
 	__forceinline GSVector4 sat(const GSVector4& a, const GSVector4& b) const
@@ -439,12 +446,12 @@ public:
 	template <int mask>
 	__forceinline GSVector4 blend32(const GSVector4& a) const
 	{
-		return GSVector4(_mm_blend_ps(m, a, mask));
+		return GSVector4(pcsx2_sse2_port::blend_ps<mask>(m, a));
 	}
 
 	__forceinline GSVector4 blend32(const GSVector4& a, const GSVector4& mask) const
 	{
-		return GSVector4(_mm_blendv_ps(m, a, mask));
+		return GSVector4(pcsx2_sse2_port::blendv_ps(m, a, mask));
 	}
 
 	__forceinline GSVector4 upl(const GSVector4& a) const
@@ -502,7 +509,7 @@ public:
 
 		__m128i a = _mm_castps_si128(m);
 
-		return _mm_testz_si128(a, a) != 0;
+		return pcsx2_sse2_port::testz_si128(a, a) != 0;
 
 #endif
 	}
@@ -516,15 +523,15 @@ public:
 	__forceinline GSVector4 insert32(const GSVector4& v) const
 	{
 		if constexpr (src == dst)
-			return GSVector4(_mm_blend_ps(m, v.m, 1 << src));
+			return GSVector4(pcsx2_sse2_port::blend_ps<(1 << src)>(m, v.m));
 		else
-			return GSVector4(_mm_insert_ps(m, v.m, _MM_MK_INSERTPS_NDX(src, dst, 0)));
+			return GSVector4(pcsx2_sse2_port::insert_ps<src, dst>(m, v.m));
 	}
 
 	template <int i>
 	__forceinline int extract32() const
 	{
-		return _mm_extract_ps(m, i);
+		return pcsx2_sse2_port::extract_ps<i>(m);
 	}
 
 	__forceinline static GSVector4 zero()

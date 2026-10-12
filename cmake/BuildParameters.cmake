@@ -82,6 +82,13 @@ if("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "x86_64" OR "${CMAKE_HOST_SYSTEM_PR
    "${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "AMD64" OR "${CMAKE_OSX_ARCHITECTURES}" STREQUAL "x86_64")
 	# Multi-ISA only exists on x86.
 	option(DISABLE_ADVANCE_SIMD "Disable advance use of SIMD (SSE2+ & AVX)" OFF)
+	# Experimental opt-in baseline: do not build the upstream SSE4/AVX/AVX2 multi-ISA variants.
+	option(PCSX2_EXPERIMENTAL_SSE2 "EXPERIMENTAL: build x86-64 with SSE2 baseline (unsupported)" OFF)
+	if(PCSX2_EXPERIMENTAL_SSE2)
+		set(DISABLE_ADVANCE_SIMD OFF CACHE BOOL "Disable advance use of SIMD (SSE2+ & AVX)" FORCE)
+		list(APPEND PCSX2_DEFS PCSX2_EXPERIMENTAL_SSE2=1)
+		message(WARNING "EXPERIMENTAL SSE2 build: compile success and JIT compatibility are NOT guaranteed.")
+	endif()
 
 	list(APPEND PCSX2_DEFS _M_X86=1)
 	set(ARCH_X86 TRUE)
@@ -92,16 +99,22 @@ if("${CMAKE_HOST_SYSTEM_PROCESSOR}" STREQUAL "x86_64" OR "${CMAKE_HOST_SYSTEM_PR
 	endif()
 
 	if(MSVC)
-		# SSE4.1 is not set by MSVC, it uses _M_SSE instead.
-		list(APPEND PCSX2_DEFS __SSE4_1__=1)
+		# Normal MSVC builds require SSE4.1. SSE2 is an opt-in experiment only.
+		if(NOT PCSX2_EXPERIMENTAL_SSE2)
+			list(APPEND PCSX2_DEFS __SSE4_1__=1)
+		endif()
 
 		if(USE_CLANG_CL)
-			# clang-cl => need to explicitly enable SSE4.1.
-			add_compile_options("-msse4.1")
+			if(PCSX2_EXPERIMENTAL_SSE2)
+				add_compile_options("-msse2" "-mno-sse3" "-mno-ssse3" "-mno-sse4.1" "-mno-sse4.2" "-mno-avx")
+			else()
+				add_compile_options("-msse4.1")
+			endif()
 		endif()
 	else()
-		# Multi-ISA => SSE4, otherwise native.
-		if (DISABLE_ADVANCE_SIMD)
+		if(PCSX2_EXPERIMENTAL_SSE2)
+			add_compile_options("-msse2" "-mno-sse3" "-mno-ssse3" "-mno-sse4.1" "-mno-sse4.2" "-mno-avx" "-mfxsr")
+		elseif (DISABLE_ADVANCE_SIMD)
 			add_compile_options("-msse" "-msse2" "-msse4.1" "-mfxsr")
 		else()
 			# Can't use march=native on Apple Silicon.

@@ -216,6 +216,15 @@ bool VMManager::PerformEarlyHardwareChecks(const char** error)
 	// So, we have to put it on the stack instead.
 	cpuinfo_initialize();
 
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	// SSE2 experiments use their own CPU gate. This does not ensure that the
+	// rest of the binary or emitted JIT instructions are SSE2-safe.
+	if (!cpuinfo_has_x86_sse2())
+	{
+		*error = "Experimental PCSX2 SSE2 build requires an x86-64 CPU with SSE2.";
+		return false;
+	}
+#else
 	if (!cpuinfo_has_x86_sse4_1())
 	{
 		*error =
@@ -224,6 +233,7 @@ bool VMManager::PerformEarlyHardwareChecks(const char** error)
 			"such as 1.6.0.\n\n" COMMON_DOWNLOAD_MESSAGE;
 		return false;
 	}
+#endif
 
 #if _M_SSE >= 0x0501
 	if (!cpuinfo_has_x86_avx2())

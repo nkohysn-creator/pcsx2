@@ -19,6 +19,10 @@
 #define _M_SSE 0x500
 #elif defined(__SSE4_1__)
 #define _M_SSE 0x401
+#elif defined(PCSX2_EXPERIMENTAL_SSE2) && defined(__SSE2__)
+// Experimental opt-in SSE2 baseline; runtime JIT and non-SSE2 intrinsics are
+// not guaranteed safe until a complete build and target-CPU test succeeds.
+#define _M_SSE 0x200
 #else
 #error PCSX2 requires compiling for at least SSE 4.1
 #endif

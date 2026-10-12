@@ -1604,7 +1604,13 @@ public:
 
 	__forceinline static GSVector4i loadnt(const void* p)
 	{
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+		// SSE4.1 MOVNTDQA is unavailable on older CPUs. A normal SSE2 load
+		// preserves the returned 128-bit value (without non-temporal semantics).
+		return GSVector4i(_mm_loadu_si128(reinterpret_cast<const __m128i*>(p)));
+#else
 		return GSVector4i(_mm_stream_load_si128((__m128i*)p));
+#endif
 	}
 
 	__forceinline static GSVector4i loadl(const void* p)

@@ -76,7 +76,7 @@ void VifUnpackSSE_Base::xPMOVXX16(const xRegisterSSE& regX) const
 {
 
 #if defined(PCSX2_EXPERIMENTAL_SSE2)
-	xMOVQ(regX, ptr64[srcIndirect]);
+	xMOVL.PS(regX, ptr64[srcIndirect]);
 	xPUNPCK.LWD(regX, regX);
 	if (usn) xPSRL.D(regX, 16);
 	else     xPSRA.D(regX, 16);

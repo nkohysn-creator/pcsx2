@@ -127,7 +127,20 @@ __fi void getQreg(const xmm& reg, int qInstance)
 __ri void writeQreg(const xmm& reg, int qInstance)
 {
 	if (qInstance)
+	{
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+		if (xmmPQ == reg)
+			xPSHUF.D(xmmPQ, xmmPQ, 0xe0); // Copy lane 0 to lane 1.
+		else
+		{
+			xPSHUF.D(xmmPQ, xmmPQ, 0xe1);
+			xMOVSS(xmmPQ, reg);
+			xPSHUF.D(xmmPQ, xmmPQ, 0xe1);
+		}
+#else
 		xINSERTPS(xmmPQ, reg, _MM_MK_INSERTPS_NDX(0, 1, 0));
+#endif
+	}
 	else
 		xMOVSS(xmmPQ, reg);
 }

@@ -1,0 +1,25 @@
+# PCSX2 2.8.2 experimental SSE2 — JIT audit (in progress)
+
+Starting point: experimental-sse2-v2.8.2 @ 6e5f52126e6eb0cc740cedc8f266f9933924f815.
+Build 7 and 8 both stopped at JIT opcode 66 45 0F 3A 21 FB 10 (SSE4.1 INSERTPS).
+This is a *preparation branch*; it does not trigger the production SSE2 build workflow.
+
+## Prepared SSE2 substitutions (not compiled/tested yet)
+- microVU_Alloc.inl: writeQreg INSERTPS with same-register-safe SSE2 path.
+- microVU_Misc.inl: EXTRACTPS stores with PSHUFD/MOVSS; BLENDPS with per-lane SSE2 copies.
+- microVU_Upper.inl: CLIP PBLENDW mask composition via SSE2.
+- Vif_UnpackSSE.cpp: PMOVSX/PMOVZX widening and clearing the W lane via SSE2.
+- iFPU.cpp: MFC1 INSERTPS replacement.
+- iR5900Misc.cpp: MFSA BLENDPD replacement.
+
+## Still requiring SSE2 rewrites before a full build/test
+- microVU_Clamp.inl: PMIN.SD + PMIN.UD (signed/unsigned bitwise clamping).
+- iFPU.cpp: fpuFloat3 PMIN.SD + PMIN.UD.
+- iMMI.cpp: PEXTR.D, BLEND.PS, PMAX.SD, PABS.D/W, PMIN.SD,
+  PBLEND.W, PMOVSX.DQ, SSSE3 MOVSHDUP/MOVSLDUP, PMUL.DQ and other cases.
+- iCore.cpp: PINSR.Q.
+- ix86-32/iR5900Move.cpp and ix86-32/iR5900MultDiv.cpp: PINSR.Q/PEXTR.Q.
+- Audit all x86 emitters and compiler intrinsics, including dynamic CPU feature dispatch.
+- Review aliasing, register pressure, sign semantics and generated opcode coverage.
+
+Do **not** merge the preparation branch into the auto-build branch before completing this audit and checking generated instructions.

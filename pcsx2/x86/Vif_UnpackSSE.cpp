@@ -10,6 +10,17 @@
 #define xMOV64(regX, loc)  xMOVUPS (regX, loc)
 #define xMOV128(regX, loc) xMOVUPS (regX, loc)
 
+static void xVifClearW(const xRegisterSSE& destReg, [[maybe_unused]] const xRegisterSSE& zeroReg)
+{
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	// Clear lane 3, leaving lanes 0-2 unchanged.
+	xPSLL.DQ(destReg, 4);
+	xPSRL.DQ(destReg, 4);
+#else
+	xBLEND.PS(destReg, zeroReg, 0x8);
+#endif
+}
+
 // =====================================================================================================
 //  VifUnpackSSE_Base Section
 // =====================================================================================================
@@ -46,14 +57,33 @@ void VifUnpackSSE_Base::xShiftR(const xRegisterSSE& regX, int n) const
 
 void VifUnpackSSE_Base::xPMOVXX8(const xRegisterSSE& regX) const
 {
+
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	xMOVSSZX(regX, ptr32[srcIndirect]);
+	xPUNPCK.LBW(regX, regX);
+	if (usn) xPSRL.W(regX, 8);
+	else     xPSRA.W(regX, 8);
+	xPUNPCK.LWD(regX, regX);
+	if (usn) xPSRL.D(regX, 16);
+	else     xPSRA.D(regX, 16);
+#else
 	if (usn) xPMOVZX.BD(regX, ptr32[srcIndirect]);
 	else     xPMOVSX.BD(regX, ptr32[srcIndirect]);
+#endif
 }
 
 void VifUnpackSSE_Base::xPMOVXX16(const xRegisterSSE& regX) const
 {
+
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	xMOVQ(regX, ptr64[srcIndirect]);
+	xPUNPCK.LWD(regX, regX);
+	if (usn) xPSRL.D(regX, 16);
+	else     xPSRA.D(regX, 16);
+#else
 	if (usn) xPMOVZX.WD(regX, ptr64[srcIndirect]);
 	else     xPMOVSX.WD(regX, ptr64[srcIndirect]);
+#endif
 }
 
 void VifUnpackSSE_Base::xUPK_S_32() const
@@ -147,7 +177,7 @@ void VifUnpackSSE_Base::xUPK_V2_32() const
 
 		xPSHUF.D(destReg, workReg, 0x44); //v1v0v1v0
 		if (IsAligned)
-			xBLEND.PS(destReg, zeroReg, 0x8); //zero last word - tested on ps2
+			xVifClearW(destReg, zeroReg); //zero last word - tested on ps2
 	}
 	else
 	{
@@ -156,7 +186,7 @@ void VifUnpackSSE_Base::xUPK_V2_32() const
 
 		xPSHUF.D(destReg, workReg, 0xEE); //v3v2v3v2
 		if (IsAligned)
-			xBLEND.PS(destReg, zeroReg, 0x8); //zero last word - tested on ps2
+			xVifClearW(destReg, zeroReg); //zero last word - tested on ps2
 	}
 }
 
@@ -207,7 +237,7 @@ void VifUnpackSSE_Base::xUPK_V3_32() const
 
 	xMOV128(destReg, ptr128[srcIndirect]);
 	if (UnpkLoopIteration != IsAligned)
-		xBLEND.PS(destReg, zeroReg, 0x8); //zero last word - tested on ps2
+		xVifClearW(destReg, zeroReg); //zero last word - tested on ps2
 }
 
 void VifUnpackSSE_Base::xUPK_V3_16() const
@@ -224,7 +254,7 @@ void VifUnpackSSE_Base::xUPK_V3_16() const
 	const int result = (((UnpkLoopIteration / 4) + 1 + (4 - IsAligned)) & 0x3);
 
 	if ((UnpkLoopIteration & 0x1) == 0 && result == 0)
-		xBLEND.PS(destReg, zeroReg, 0x8); //zero last word - tested on ps2
+		xVifClearW(destReg, zeroReg); //zero last word - tested on ps2
 }
 
 void VifUnpackSSE_Base::xUPK_V3_8() const
@@ -234,7 +264,7 @@ void VifUnpackSSE_Base::xUPK_V3_8() const
 
 	xPMOVXX8(destReg);
 	if (UnpkLoopIteration != IsAligned)
-		xBLEND.PS(destReg, zeroReg, 0x8); //zero last word - tested on ps2
+		xVifClearW(destReg, zeroReg); //zero last word - tested on ps2
 }
 
 void VifUnpackSSE_Base::xUPK_V4_32() const

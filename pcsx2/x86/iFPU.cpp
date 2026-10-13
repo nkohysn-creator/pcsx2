@@ -179,7 +179,14 @@ void recMFC1()
 		const int temp = _allocTempXMMreg(XMMT_FPS);
 		xPSRA.D(xRegisterSSE(temp), xRegisterSSE(regs), 31);
 		xMOVSS(xRegisterSSE(xmmregt), xRegisterSSE(regs));
+
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+		xPSHUF.D(xRegisterSSE(xmmregt), xRegisterSSE(xmmregt), 0xe1);
+		xMOVSS(xRegisterSSE(xmmregt), xRegisterSSE(temp));
+		xPSHUF.D(xRegisterSSE(xmmregt), xRegisterSSE(xmmregt), 0xe1);
+#else
 		xINSERTPS(xRegisterSSE(xmmregt), xRegisterSSE(temp), _MM_MK_INSERTPS_NDX(0, 1, 0));
+#endif
 		_freeXMMreg(temp);
 		return;
 	}

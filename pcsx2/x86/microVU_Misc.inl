@@ -39,14 +39,27 @@ void mVUloadIreg(const xmm& reg, int xyzw, VURegs* vuRegs)
 		xSHUF.PS(reg, reg, 0);
 }
 
+// Store a 32-bit XMM lane to memory, restoring the original source.
+static void mVUstoreLane(xAddressVoid address, const xmm& reg, u8 lane)
+{
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	const u8 shuffle = (lane == 1) ? 0xe1 : (lane == 2) ? 0xc6 : 0x1b;
+	xPSHUF.D(reg, reg, shuffle);
+	xMOVSS(ptr32[address], reg);
+	xPSHUF.D(reg, reg, shuffle);
+#else
+	xEXTRACTPS(ptr32[address], reg, lane);
+#endif
+}
+
 // Modifies the Source Reg!
 void mVUsaveReg(const xmm& reg, xAddressVoid ptr, int xyzw, bool modXYZW)
 {
 	switch (xyzw)
 	{
 		case 5: // YW
-			xEXTRACTPS(ptr32[ptr + 4], reg, 1);
-			xEXTRACTPS(ptr32[ptr + 12], reg, 3);
+			mVUstoreLane(ptr + 4, reg, 1);
+			mVUstoreLane(ptr + 12, reg, 3);
 			break;
 		case 6: // YZ
 			xPSHUF.D(reg, reg, 0xc9);
@@ -54,15 +67,15 @@ void mVUsaveReg(const xmm& reg, xAddressVoid ptr, int xyzw, bool modXYZW)
 			break;
 		case 7: // YZW
 			xMOVH.PS(ptr64[ptr + 8], reg);
-			xEXTRACTPS(ptr32[ptr + 4], reg, 1);
+			mVUstoreLane(ptr + 4, reg, 1);
 			break;
 		case 9: // XW
 			xMOVSS(ptr32[ptr], reg);
-			xEXTRACTPS(ptr32[ptr + 12], reg, 3);
+			mVUstoreLane(ptr + 12, reg, 3);
 			break;
 		case 10: // XZ
 			xMOVSS(ptr32[ptr], reg);
-			xEXTRACTPS(ptr32[ptr + 8], reg, 2);
+			mVUstoreLane(ptr + 8, reg, 2);
 			break;
 		case 11: // XZW
 			xMOVSS(ptr32[ptr], reg);
@@ -70,11 +83,11 @@ void mVUsaveReg(const xmm& reg, xAddressVoid ptr, int xyzw, bool modXYZW)
 			break;
 		case 13: // XYW
 			xMOVL.PS(ptr64[ptr], reg);
-			xEXTRACTPS(ptr32[ptr + 12], reg, 3);
+			mVUstoreLane(ptr + 12, reg, 3);
 			break;
 		case 14: // XYZ
 			xMOVL.PS(ptr64[ptr], reg);
-			xEXTRACTPS(ptr32[ptr + 8], reg, 2);
+			mVUstoreLane(ptr + 8, reg, 2);
 			break;
 		case 4: // Y
 			if (!modXYZW)
@@ -153,7 +166,30 @@ void mVUmergeRegs(const xmm& dest, const xmm& src, int xyzw, bool modXYZW)
 #endif
 			}
 			xyzw = ((xyzw & 1) << 3) | ((xyzw & 2) << 1) | ((xyzw & 4) >> 1) | ((xyzw & 8) >> 3);
+
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+			// SSE2 BLENDPS equivalent. Preserve all unselected lanes, and restore src.
+			for (int lane = 0; lane < 4; lane++)
+			{
+				if (!(xyzw & (1 << lane)))
+					continue;
+				if (lane == 0)
+				{
+					xMOVSS(dest, src);
+				}
+				else
+				{
+					const u8 shuffle = (lane == 1) ? 0xe1 : (lane == 2) ? 0xc6 : 0x1b;
+					xPSHUF.D(dest, dest, shuffle);
+					xPSHUF.D(src, src, shuffle);
+					xMOVSS(dest, src);
+					xPSHUF.D(src, src, shuffle);
+					xPSHUF.D(dest, dest, shuffle);
+				}
+			}
+#else
 			xBLEND.PS(dest, src, xyzw);
+#endif
 		}
 	}
 }

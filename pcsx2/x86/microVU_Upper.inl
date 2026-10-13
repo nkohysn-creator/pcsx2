@@ -18,6 +18,12 @@
 	} while (0)
 
 
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+// PBLENDW immediate 0x55: even words from t1, odd words from Fs.
+alignas(16) static const u32 sse2_clip_odd_words[4] = {0xffff0000, 0xffff0000, 0xffff0000, 0xffff0000};
+alignas(16) static const u32 sse2_clip_even_words[4] = {0x0000ffff, 0x0000ffff, 0x0000ffff, 0x0000ffff};
+#endif
+
 alignas(16) const u32 sse4_compvals[2][4] = {
 	{0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff}, //1111
 	{0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff}, //1111
@@ -554,7 +560,14 @@ mVUop(mVU_CLIP)
 		xPCMP.GTD(t1, Ft); // +w, +z, +y, +x
 		xPCMP.GTD(Fs, Ft); // -w, -z, -y, -x
 
+
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+		xPAND(Fs, ptr128[sse2_clip_odd_words]);
+		xPAND(t1, ptr128[sse2_clip_even_words]);
+		xPOR(Fs, t1);
+#else
 		xPBLEND.W (Fs, t1, 0x55); // Squish together
+#endif
 		xPACK.SSWB(Fs, Fs);       // Convert u16 to u8
 		xPMOVMSKB (gprT2, Fs);    // Get bitmask
 		xAND      (gprT2, 0x3f);  // Mask unused stuff

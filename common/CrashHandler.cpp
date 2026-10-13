@@ -142,6 +142,68 @@ static void WriteMinidumpAndCallstack(PEXCEPTION_POINTERS exi)
 		CloseHandle(hFile);
 }
 
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+// Diagnostic only: log the first unsupported opcode and continue normal crash handling.
+static LONG CALLBACK ExperimentalSSE2IllegalInstructionTrace(PEXCEPTION_POINTERS exi)
+{
+	if (!exi || !exi->ExceptionRecord || exi->ExceptionRecord->ExceptionCode != EXCEPTION_ILLEGAL_INSTRUCTION)
+		return EXCEPTION_CONTINUE_SEARCH;
+
+	static volatile LONG s_written = 0;
+	if (InterlockedCompareExchange(&s_written, 1, 0) != 0)
+		return EXCEPTION_CONTINUE_SEARCH;
+
+	wchar_t filename[1024] = {};
+	_snwprintf_s(filename, std::size(filename), _TRUNCATE, L"%ls%lsSSE2_ILLEGAL_INSTRUCTION.txt",
+		s_write_directory.c_str(), s_write_directory.empty() ? L"" : L"\\");
+	HANDLE file = CreateFileW(filename, GENERIC_WRITE, FILE_SHARE_READ, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (file == INVALID_HANDLE_VALUE)
+		return EXCEPTION_CONTINUE_SEARCH;
+
+	const void* pc = exi->ExceptionRecord->ExceptionAddress;
+	unsigned char code[16] = {};
+	SIZE_T bytes_read = 0;
+	const BOOL read_ok = ReadProcessMemory(GetCurrentProcess(), pc, code, sizeof(code), &bytes_read);
+
+	MEMORY_BASIC_INFORMATION mbi = {};
+	VirtualQuery(pc, &mbi, sizeof(mbi));
+	const char* region = (mbi.Type == MEM_PRIVATE) ? "MEM_PRIVATE (possibly JIT)" :
+		(mbi.Type == MEM_IMAGE) ? "MEM_IMAGE (module)" : "other";
+
+	char output[1024] = {};
+	int length = std::snprintf(output, sizeof(output),
+		"PCSX2 experimental SSE2 - illegal instruction\r\n"
+		"Exception: 0x%08X\r\n"
+		"Address: %p\r\n"
+		"Thread ID: %lu\r\n"
+		"Memory type: %s\r\n"
+		"Bytes (%zu): ",
+		static_cast<unsigned>(exi->ExceptionRecord->ExceptionCode), pc,
+		static_cast<unsigned long>(GetCurrentThreadId()), region,
+		read_ok ? static_cast<size_t>(bytes_read) : static_cast<size_t>(0));
+
+	if (length > 0 && static_cast<size_t>(length) < sizeof(output))
+	{
+		size_t used = static_cast<size_t>(length);
+		for (SIZE_T i = 0; read_ok && i < bytes_read && used + 4 < sizeof(output); i++)
+		{
+			const int added = std::snprintf(output + used, sizeof(output) - used, "%02X ", code[i]);
+			if (added < 0) break;
+			used += static_cast<size_t>(added);
+		}
+		if (used + 3 < sizeof(output))
+		{
+			output[used++] = '\r';
+			output[used++] = '\n';
+		}
+		DWORD written = 0;
+		WriteFile(file, output, static_cast<DWORD>(used), &written, nullptr);
+	}
+	CloseHandle(file);
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
 static LONG NTAPI ExceptionHandler(PEXCEPTION_POINTERS exi)
 {
 	// if the debugger is attached, or we're recursively crashing, let it take care of it.
@@ -162,6 +224,9 @@ bool CrashHandler::Install()
 	if (mod)
 		s_dbghelp_module.Adopt(mod);
 
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	AddVectoredExceptionHandler(1, ExperimentalSSE2IllegalInstructionTrace);
+#endif
 	SetUnhandledExceptionFilter(ExceptionHandler);
 	return true;
 }

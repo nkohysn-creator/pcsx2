@@ -120,9 +120,37 @@ void mVUmergeRegs(const xmm& dest, const xmm& src, int xyzw, bool modXYZW)
 		{
 			if (modXYZW)
 			{
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+				// INSERTPS src[0] -> dst[3/2/1] with zero mask=0.
+				// This function is reached only for dest != src.
+				// Swap dst[0] with target lane, MOVSS in src[0], then swap back.
+				// PSHUFD and MOVSS are SSE2 and preserve the other 3 lanes.
+				if (xyzw == 1)
+				{
+					xPSHUF.D(dest, dest, 0x1b); // swap lane 0 and lane 3
+					xMOVSS(dest, src);
+					xPSHUF.D(dest, dest, 0x1b);
+					return;
+				}
+				else if (xyzw == 2)
+				{
+					xPSHUF.D(dest, dest, 0xc6); // swap lane 0 and lane 2
+					xMOVSS(dest, src);
+					xPSHUF.D(dest, dest, 0xc6);
+					return;
+				}
+				else if (xyzw == 4)
+				{
+					xPSHUF.D(dest, dest, 0xe1); // swap lane 0 and lane 1
+					xMOVSS(dest, src);
+					xPSHUF.D(dest, dest, 0xe1);
+					return;
+				}
+#else
 				if      (xyzw == 1) { xINSERTPS(dest, src, _MM_MK_INSERTPS_NDX(0, 3, 0)); return; }
 				else if (xyzw == 2) { xINSERTPS(dest, src, _MM_MK_INSERTPS_NDX(0, 2, 0)); return; }
 				else if (xyzw == 4) { xINSERTPS(dest, src, _MM_MK_INSERTPS_NDX(0, 1, 0)); return; }
+#endif
 			}
 			xyzw = ((xyzw & 1) << 3) | ((xyzw & 2) << 1) | ((xyzw & 4) >> 1) | ((xyzw & 8) >> 3);
 			xBLEND.PS(dest, src, xyzw);

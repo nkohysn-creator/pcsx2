@@ -41,13 +41,13 @@ static inline __m128 round_ps(__m128 a) {
     static_assert((mode & ~15) == 0, "ROUNDPS mode out of range");
     const __m128i bits = _mm_castps_si128(a);
     const __m128i magnitude = _mm_and_si128(bits, _mm_set1_epi32(0x7fffffff));
-    const __m128i small = _mm_cmplt_epi32(magnitude, _mm_set1_epi32(0x4b000000));
-    const __m128 safe = _mm_and_ps(a, _mm_castsi128_ps(small));
+    const __m128i small_lanes = _mm_cmplt_epi32(magnitude, _mm_set1_epi32(0x4b000000));
+    const __m128 safe = _mm_and_ps(a, _mm_castsi128_ps(small_lanes));
     const unsigned rounding = (mode & 4) ? ((_mm_getcsr() >> 13) & 3) : (mode & 3);
     const __m128 rounded = round_finite(safe, rounding);
     const __m128 signbit = _mm_and_ps(a, _mm_castsi128_ps(_mm_set1_epi32(0x80000000u)));
     const __m128 signed_result = _mm_or_ps(rounded, signbit);
-    const __m128 small_mask = _mm_castsi128_ps(small);
+    const __m128 small_mask = _mm_castsi128_ps(small_lanes);
     return _mm_or_ps(_mm_and_ps(small_mask, signed_result), _mm_andnot_ps(small_mask, a));
 }
 

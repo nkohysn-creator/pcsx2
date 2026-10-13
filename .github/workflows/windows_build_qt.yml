@@ -122,7 +122,7 @@ jobs:
 
       - name: Cache Dependencies
         id: cache-deps
-        uses: actions/cache@v6
+        uses: actions/cache/restore@v4
         with:
           path: deps
           key: ${{ inputs.os }} ${{ inputs.platform }} deps ${{ hashFiles('.github/workflows/scripts/windows/build-dependencies.bat', '.github/workflows/scripts/common/*.patch') }}
@@ -133,6 +133,15 @@ jobs:
           DEBUG: 0
           BUILD_FFMPEG: 1
         run: .github/workflows/scripts/windows/build-dependencies.bat
+
+      # Save *before* the emulator build, since experimental build errors
+      # should not force us to rebuild FFmpeg and the other dependencies.
+      - name: Save Dependencies Cache Immediately
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: deps
+          key: ${{ inputs.os }} ${{ inputs.platform }} deps ${{ hashFiles('.github/workflows/scripts/windows/build-dependencies.bat', '.github/workflows/scripts/common/*.patch') }}
 
       - name: Generate CMake
         if: inputs.configuration == 'CMake'
@@ -147,7 +156,12 @@ jobs:
         run: |
           if "${{ inputs.configuration }}"=="CMake" (
             call "%VCVARSPATH%" || exit /b
-            cmake --build build --config Release || exit /b
+            if "${{ contains(inputs.cmakeFlags, 'PCSX2_EXPERIMENTAL_SSE2=ON') }}"=="true" (
+              REM Ninja -k 0 gathers multiple compiler errors in one run.
+              cmake --build build --config Release -- -k 0 || exit /b
+            ) else (
+              cmake --build build --config Release || exit /b
+            )
             cmake --install build --config Release || exit /b
           ) else (
             msbuild "PCSX2_qt.sln" /m /v:m /p:Configuration="${{ inputs.configuration }}" /p:Platform="${{ inputs.platform }}" || exit /b
@@ -156,7 +170,7 @@ jobs:
           del bin\resources\fonts\Twemoji*
 
       - name: Run Tests
-        if: inputs.configuration == 'CMake'
+        if: inputs.configuration == 'CMake' && !contains(inputs.cmakeFlags, 'PCSX2_EXPERIMENTAL_SSE2=ON')
         shell: cmd
         run: |
           call "%VCVARSPATH%" || exit /b
@@ -178,11 +192,13 @@ jobs:
             !./bin/**/*.lib
 
       - name: Install the Breakpad Symbol Generator
+        if: ${{ !contains(inputs.cmakeFlags, 'PCSX2_EXPERIMENTAL_SSE2=ON') }}
         uses: baptiste0928/cargo-install@f204293d9709061b7bc1756fec3ec4e2cd57dec0
         with:
           crate: dump_syms
 
       - name: Generate Breakpad Symbols # Also flatten pdbs to a 'symbols' directory for upload-artifact
+        if: ${{ !contains(inputs.cmakeFlags, 'PCSX2_EXPERIMENTAL_SSE2=ON') }}
         shell: pwsh
         run: |
           mkdir -Force symbols
@@ -196,6 +212,7 @@ jobs:
           }
 
       - name: Upload artifact - with symbols
+        if: ${{ !contains(inputs.cmakeFlags, 'PCSX2_EXPERIMENTAL_SSE2=ON') }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.artifact-metadata.outputs.artifact-name }}-symbols

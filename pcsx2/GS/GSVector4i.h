@@ -632,22 +632,22 @@ public:
 
 	__forceinline GSVector4i i8to32() const
 	{
-		return GSVector4i(_mm_cvtepi8_epi32(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepi8_epi32(m));
 	}
 
 	__forceinline GSVector4i u8to32() const
 	{
-		return GSVector4i(_mm_cvtepu8_epi32(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepu8_epi32(m));
 	}
 
 	__forceinline GSVector4i i8to64() const
 	{
-		return GSVector4i(_mm_cvtepi8_epi64(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepi8_epi64(m));
 	}
 
 	__forceinline GSVector4i u8to64() const
 	{
-		return GSVector4i(_mm_cvtepu16_epi64(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepu16_epi64(m));
 	}
 
 	__forceinline GSVector4i i16to32() const
@@ -662,12 +662,12 @@ public:
 
 	__forceinline GSVector4i i16to64() const
 	{
-		return GSVector4i(_mm_cvtepi16_epi64(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepi16_epi64(m));
 	}
 
 	__forceinline GSVector4i u16to64() const
 	{
-		return GSVector4i(_mm_cvtepu16_epi64(m));
+		return GSVector4i(pcsx2_sse2_phase7::cvtepu16_epi64(m));
 	}
 
 	__forceinline GSVector4i i32to64() const

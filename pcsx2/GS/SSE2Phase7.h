@@ -34,6 +34,11 @@ static inline __m128i cvtepu32_epi64(__m128i a) {return _mm_unpacklo_epi32(a,_mm
 static inline __m128i cvtepi8_epi16(__m128i a) {return _mm_unpacklo_epi8(a,_mm_cmpgt_epi8(_mm_setzero_si128(),a));}
 static inline __m128i cvtepi16_epi32(__m128i a) {return _mm_unpacklo_epi16(a,_mm_cmpgt_epi16(_mm_setzero_si128(),a));}
 static inline __m128i cvtepi32_epi64(__m128i a) {return _mm_unpacklo_epi32(a,_mm_srai_epi32(a,31));}
+static inline __m128i cvtepi8_epi32(__m128i a) {return cvtepi16_epi32(cvtepi8_epi16(a));}
+static inline __m128i cvtepu8_epi32(__m128i a) {return cvtepu16_epi32(cvtepu8_epi16(a));}
+static inline __m128i cvtepi8_epi64(__m128i a) {return cvtepi32_epi64(cvtepi8_epi32(a));}
+static inline __m128i cvtepi16_epi64(__m128i a) {return cvtepi32_epi64(cvtepi16_epi32(a));}
+static inline __m128i cvtepu16_epi64(__m128i a) {return cvtepu32_epi64(cvtepu16_epi32(a));}
 static inline __m128i cmpeq_epi64(__m128i a,__m128i b) {
   __m128i eq=_mm_cmpeq_epi32(a,b);
   return _mm_and_si128(eq,_mm_shuffle_epi32(eq,_MM_SHUFFLE(2,3,0,1)));

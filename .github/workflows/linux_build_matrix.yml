@@ -4,6 +4,7 @@ on:
   push:
     branches-ignore:
       - "l10n_master"
+      - "experimental-sse2-v2.8.2"
   pull_request:
     branches:
       - master

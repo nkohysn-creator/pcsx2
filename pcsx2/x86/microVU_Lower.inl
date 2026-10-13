@@ -16,7 +16,15 @@ static __fi void testZero(const xmm& xmmReg, const xmm& xmmTemp, const x32& gprT
 {
 	xXOR.PS(xmmTemp, xmmTemp);
 	xCMPEQ.SS(xmmTemp, xmmReg);
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	// CMPEQ.SS sets lane 0 to all bits set when the value is zero,
+	// with the other lanes cleared. MOVMSKPS+TEST preserves the ZF
+	// expected by the following JZ, without emitting SSE4.1 PTEST.
+	xMOVMSKPS(gprTemp, xmmTemp);
+	xTEST(gprTemp, gprTemp);
+#else
 	xPTEST(xmmTemp, xmmTemp);
+#endif
 }
 
 // Test if Vector is Negative (Set Flags and Makes Positive)

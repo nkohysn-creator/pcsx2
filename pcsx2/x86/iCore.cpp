@@ -348,7 +348,14 @@ int _allocGPRtoXMMreg(int gprreg, int mode)
 				// load lower+upper, replace lower
 				xMOVDQA(xRegisterSSE(xmmreg), ptr128[&cpuRegs.GPR.r[gprreg].UQ]);
 				xMOV64(rax, g_cpuConstRegs[gprreg].SD[0]);
+				// SSE2 MOVLPS preserves the upper 64 bits, unlike SSE4.1 PINSRQ.
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+				xPUSH(rax);
+				xMOVL.PS(xRegisterSSE(xmmreg), ptr64[rsp]);
+				xPOP(rax);
+#else
 				xPINSR.Q(xRegisterSSE(xmmreg), rax, 0);
+#endif
 				xmmregs[xmmreg].mode |= MODE_WRITE; // reg is dirty
 				g_cpuFlushedConstReg |= (1u << gprreg);
 
@@ -370,7 +377,13 @@ int _allocGPRtoXMMreg(int gprreg, int mode)
 				if (x86regs[hostx86reg].mode & MODE_WRITE)
 				{
 					RALOG("Moving dirty guest reg %d from GPR %d to XMM %d\n", gprreg, hostx86reg, xmmreg);
+					#if defined(PCSX2_EXPERIMENTAL_SSE2)
+					xPUSH(xRegister64(hostx86reg));
+					xMOVL.PS(xRegisterSSE(xmmreg), ptr64[rsp]);
+					xPOP(xRegister64(hostx86reg));
+#else
 					xPINSR.Q(xRegisterSSE(xmmreg), xRegister64(hostx86reg), 0);
+#endif
 					_freeX86regWithoutWriteback(hostx86reg);
 					xmmregs[xmmreg].mode |= MODE_WRITE;
 				}

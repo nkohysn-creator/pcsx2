@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0+
 
 #pragma once
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+#include "SSE2JitClamp.h"
+#endif
 
 //------------------------------------------------------------------
 // Micro VU - Clamp Functions
@@ -50,8 +53,12 @@ void mVUclamp2(microVU& mVU, const xmm& reg, const xmm& regT1in, int xyzw, bool 
 	if (((!clampE && CHECK_VU_SIGN_OVERFLOW(mVU.index)) || (clampE && bClampE && CHECK_VU_SIGN_OVERFLOW(mVU.index))) && mVU.regAlloc->checkVFClamp(reg.Id))
 	{
 		int i = (xyzw == 1 || xyzw == 2 || xyzw == 4 || xyzw == 8) ? 0 : 1;
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+		SSE2JitCompat::ClampToFinite(reg, ptr128[&sse4_maxvals[i][0]]);
+#else
 		xPMIN.SD(reg, ptr128[&sse4_maxvals[i][0]]);
 		xPMIN.UD(reg, ptr128[&sse4_minvals[i][0]]);
+#endif
 		return;
 	}
 	else

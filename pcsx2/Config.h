@@ -1538,15 +1538,22 @@ namespace EmuFolders
 // It also adds a few glitches. Really reminds me of the old Linux 64-bit version. --arcum42
 #define ARITHMETICIMM_RECOMPILE
 #define ARITHMETIC_RECOMPILE
+#if !defined(PCSX2_EXPERIMENTAL_SSE2)
 #define MULTDIV_RECOMPILE
+#endif
 #define JUMP_RECOMPILE
 #define LOADSTORE_RECOMPILE
+// For the experimental SSE2 build, retain EE JIT for regular instructions,
+// but use the established interpreter fallbacks for MMI, MOVE and MULTDIV.
+// These paths still emit unsupported SSSE3/SSE4.1 instructions on K10.
+#if !defined(PCSX2_EXPERIMENTAL_SSE2)
 #define MOVE_RECOMPILE
 #define MMI_RECOMPILE
 #define MMI0_RECOMPILE
 #define MMI1_RECOMPILE
 #define MMI2_RECOMPILE
 #define MMI3_RECOMPILE
+#endif
 #define FPU_RECOMPILE
 #define CP0_RECOMPILE
 #define CP2_RECOMPILE

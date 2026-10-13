@@ -5,6 +5,9 @@
 #include "R5900OpcodeTables.h"
 #include "iR5900.h"
 #include "iFPU.h"
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+#include "SSE2JitClamp.h"
+#endif
 
 using namespace x86Emitter;
 
@@ -346,8 +349,12 @@ static void fpuFreeIfTemp(int xmmreg)
 
 __fi void fpuFloat3(int regd) // +NaN -> +fMax, -NaN -> -fMax, +Inf -> +fMax, -Inf -> -fMax
 {
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	SSE2JitCompat::ClampToFinite(xRegisterSSE(regd), ptr128[&g_maxvals[0]]);
+#else
 	xPMIN.SD(xRegisterSSE(regd), ptr128[&g_maxvals[0]]);
 	xPMIN.UD(xRegisterSSE(regd), ptr128[&g_minvals[0]]);
+#endif
 }
 
 __fi void fpuFloat(int regd) // +/-NaN -> +fMax, +Inf -> +fMax, -Inf -> -fMax

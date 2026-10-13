@@ -23,3 +23,10 @@ This is a *preparation branch*; it does not trigger the production SSE2 build wo
 - Review aliasing, register pressure, sign semantics and generated opcode coverage.
 
 Do **not** merge the preparation branch into the auto-build branch before completing this audit and checking generated instructions.
+
+
+## Second batch: VU1/EE functionality (SSE2)
+- EE instruction families MMI0/MMI1/MMI2/MMI3 and MOVE/MULTDIV use PCSX2's interpreter fallback in this experimental build only. Standard EE JIT remains enabled for other categories; this is a functionality-first trade-off.
+- EE iCore PINSRQ lane-0 writes are emitted as PUSH/MOVLPS/POP with upper XMM half preserved.
+- VU1 and EE/FPU signed-then-unsigned integer clamp uses SSE2 PCMPGTD/PANDN/PAND/POR with a preserved scratch XMM, rather than approximate floating point MINPS/MAXPS.
+- Not yet validated on a real Phenom II. Do not claim the game boots based on compilation success.

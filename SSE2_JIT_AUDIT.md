@@ -30,3 +30,11 @@ Do **not** merge the preparation branch into the auto-build branch before comple
 - EE iCore PINSRQ lane-0 writes are emitted as PUSH/MOVLPS/POP with upper XMM half preserved.
 - VU1 and EE/FPU signed-then-unsigned integer clamp uses SSE2 PCMPGTD/PANDN/PAND/POR with a preserved scratch XMM, rather than approximate floating point MINPS/MAXPS.
 - Not yet validated on a real Phenom II. Do not claim the game boots based on compilation success.
+
+## Build 11: GTA startup DPPS/0x71 diagnosis (2026-10-14)
+- Crash report: SSE2_ILLEGAL_INSTRUCTION(3).txt, 0xC000001D, JIT MEM_PRIVATE, bytes `66 0F 3A 40 DB 71`.
+- Objdump decodes as `dpps xmm3,xmm3,0x71`, followed by `movss xmm15,xmm3`.
+- Root source: `pcsx2/x86/microVU_Lower.inl`, `mVU_sumXYZ`, called by VU1 ELENG/ERLENG/ERSADD and another EFU path.
+- SSE2 gated replacement: MULPS, PSHUFD, ADDSS, PSLLDQ, PSRLDQ, scratch register acquired/released from microVU allocator. Retains register output lane masks and preserves PQ other lanes.
+- Broad review of `pcsx2/x86/microVU_*.inl` found no other active DPPS emission; legacy DPPS is retained only under non-experimental preprocessor branch.
+- Build-only validation still required; game/runtime test on Phenom II pending. Do not mistake the BIOS success for complete VU1 support.

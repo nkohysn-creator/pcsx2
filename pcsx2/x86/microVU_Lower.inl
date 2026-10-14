@@ -341,7 +341,21 @@ mVUop(mVU_EEXP)
 // sumXYZ(): PQ.x = x ^ 2 + y ^ 2 + z ^ 2
 static __fi void mVU_sumXYZ(mV, const xmm& PQ, const xmm& Fs)
 {
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	// DPPS 0x71 (SSE4.1): square XYZ, sum them in lane 0, clear lanes 1-3.
+	// Compute exactly those lanes with SSE2 instead, preserving PQ's other lanes.
+	const xmm& temp = mVU.regAlloc->allocReg();
+	xMUL.PS(Fs, Fs);
+	xPSHUF.D(temp, Fs, 0x55); // y^2
+	xADD.SS(Fs, temp);       // x^2 + y^2
+	xPSHUF.D(temp, Fs, 0xaa); // z^2 (unaltered lane 2)
+	xADD.SS(Fs, temp);       // x^2 + y^2 + z^2
+	xPSLL.DQ(Fs, 12);        // leave result in high dword
+	xPSRL.DQ(Fs, 12);        // move it back to lane 0 and clear 1-3
+	mVU.regAlloc->clearNeeded(temp);
+#else
 	xDP.PS(Fs, Fs, 0x71);
+#endif
 	xMOVSS(PQ, Fs);
 }
 

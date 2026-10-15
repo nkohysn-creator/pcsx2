@@ -318,7 +318,7 @@ void CrashHandler::SetWriteDirectory(std::string_view dump_directory)
 {
 	s_write_directory = FileSystem::GetWin32Path(dump_directory);
 #if defined(PCSX2_EXPERIMENTAL_SSE2)
-	CrashHandler::TraceSSE2Stage("PCSX2 started; SSE2 SW trace active");
+	CrashHandler::TraceSSE2Stage("PCSX2 trace initialized");
 #endif
 }
 
@@ -332,8 +332,7 @@ void CrashHandler::TraceSSE2Stage(const char* stage)
 	SYSTEMTIME t = {};
 	GetLocalTime(&t);
 	char line[512] = {};
-	std::snprintf(line, sizeof(line), "%02u:%02u:%02u.%03u TID=%lu STAGE %s
-",
+	std::snprintf(line, sizeof(line), "%02u:%02u:%02u.%03u TID=%lu STAGE %s\r\n",
 		t.wHour, t.wMinute, t.wSecond, t.wMilliseconds,
 		static_cast<unsigned long>(GetCurrentThreadId()), stage);
 	ExperimentalSSE2AppendTrace(line);

@@ -204,9 +204,91 @@ static LONG CALLBACK ExperimentalSSE2IllegalInstructionTrace(PEXCEPTION_POINTERS
 }
 #endif
 
+
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+// Experimental GS software diagnostics: append and flush every stage so an
+// abrupt process termination still leaves the last completed stage on disk.
+static void ExperimentalSSE2AppendTrace(const char* message)
+{
+	wchar_t filename[1024] = {};
+	_snwprintf_s(filename, std::size(filename), _TRUNCATE, L"%ls%lsSSE2_SW_TRACE.txt",
+		s_write_directory.c_str(), s_write_directory.empty() ? L"" : L"\\");
+	HANDLE file = CreateFileW(filename, FILE_APPEND_DATA,
+		FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+	if (file == INVALID_HANDLE_VALUE)
+		return;
+
+	DWORD written = 0;
+	WriteFile(file, message, static_cast<DWORD>(std::strlen(message)), &written, nullptr);
+	FlushFileBuffers(file);
+	CloseHandle(file);
+}
+
+static void ExperimentalSSE2WriteException(const char* description, PEXCEPTION_POINTERS exi)
+{
+	if (!exi || !exi->ExceptionRecord)
+		return;
+	const auto* record = exi->ExceptionRecord;
+	const void* pc = record->ExceptionAddress;
+	MEMORY_BASIC_INFORMATION mbi = {};
+	VirtualQuery(pc, &mbi, sizeof(mbi));
+	unsigned char code[16] = {};
+	SIZE_T count = 0;
+	const BOOL read_ok = ReadProcessMemory(GetCurrentProcess(), pc, code, sizeof(code), &count);
+
+	char output[1024] = {};
+	int n = std::snprintf(output, sizeof(output),
+		"%s: exception=0x%08X PC=%p TID=%lu MEM=%s",
+		description, static_cast<unsigned>(record->ExceptionCode), pc,
+		static_cast<unsigned long>(GetCurrentThreadId()),
+		mbi.Type == MEM_PRIVATE ? "PRIVATE/JIT" : (mbi.Type == MEM_IMAGE ? "IMAGE" : "OTHER"));
+	if (record->ExceptionCode == EXCEPTION_ACCESS_VIOLATION &&
+		record->NumberParameters >= 2 && n > 0 && static_cast<size_t>(n) < sizeof(output))
+	{
+		n += std::snprintf(output + n, sizeof(output) - n, " access=%llu address=%p",
+			static_cast<unsigned long long>(record->ExceptionInformation[0]),
+			reinterpret_cast<const void*>(record->ExceptionInformation[1]));
+	}
+	if (n > 0 && static_cast<size_t>(n) < sizeof(output))
+	{
+		n += std::snprintf(output + n, sizeof(output) - n, " bytes=");
+		for (SIZE_T i = 0; read_ok && i < count && n > 0 &&
+			static_cast<size_t>(n) + 4 < sizeof(output); ++i)
+			n += std::snprintf(output + n, sizeof(output) - n, "%02X ", code[i]);
+		if (n > 0 && static_cast<size_t>(n) + 3 < sizeof(output))
+		{
+			output[n++] = '\r';
+			output[n++] = '\n';
+			output[n] = '\0';
+			ExperimentalSSE2AppendTrace(output);
+		}
+	}
+}
+
+static volatile LONG s_sse2_sw_active = 0;
+// First-chance access violations can be handled normally by the emulator.
+// Record a bounded diagnostic sample; mark the final unhandled event separately.
+static LONG CALLBACK ExperimentalSSE2SWExceptionTrace(PEXCEPTION_POINTERS exi)
+{
+	if (!exi || !exi->ExceptionRecord || !s_sse2_sw_active)
+		return EXCEPTION_CONTINUE_SEARCH;
+	const DWORD code = exi->ExceptionRecord->ExceptionCode;
+	if (code != EXCEPTION_ILLEGAL_INSTRUCTION && code != EXCEPTION_ACCESS_VIOLATION &&
+		code != EXCEPTION_PRIV_INSTRUCTION)
+		return EXCEPTION_CONTINUE_SEARCH;
+	static volatile LONG s_count = 0;
+	if (InterlockedIncrement(&s_count) <= 16)
+		ExperimentalSSE2WriteException("FIRST_CHANCE", exi);
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
 static LONG NTAPI ExceptionHandler(PEXCEPTION_POINTERS exi)
 {
 	// if the debugger is attached, or we're recursively crashing, let it take care of it.
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	ExperimentalSSE2WriteException("UNHANDLED", exi);
+#endif
 	if (!s_in_crash_handler)
 		WriteMinidumpAndCallstack(exi);
 
@@ -226,6 +308,7 @@ bool CrashHandler::Install()
 
 #if defined(PCSX2_EXPERIMENTAL_SSE2)
 	AddVectoredExceptionHandler(1, ExperimentalSSE2IllegalInstructionTrace);
+	AddVectoredExceptionHandler(1, ExperimentalSSE2SWExceptionTrace);
 #endif
 	SetUnhandledExceptionFilter(ExceptionHandler);
 	return true;
@@ -234,7 +317,28 @@ bool CrashHandler::Install()
 void CrashHandler::SetWriteDirectory(std::string_view dump_directory)
 {
 	s_write_directory = FileSystem::GetWin32Path(dump_directory);
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	CrashHandler::TraceSSE2Stage("PCSX2 started; SSE2 SW trace active");
+#endif
 }
+
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+void CrashHandler::TraceSSE2Stage(const char* stage)
+{
+	if (!stage)
+		return;
+	if (std::strstr(stage, "SW") || std::strstr(stage, "GSreopen"))
+		InterlockedExchange(&s_sse2_sw_active, 1);
+	SYSTEMTIME t = {};
+	GetLocalTime(&t);
+	char line[512] = {};
+	std::snprintf(line, sizeof(line), "%02u:%02u:%02u.%03u TID=%lu STAGE %s
+",
+		t.wHour, t.wMinute, t.wSecond, t.wMilliseconds,
+		static_cast<unsigned long>(GetCurrentThreadId()), stage);
+	ExperimentalSSE2AppendTrace(line);
+}
+#endif
 
 void CrashHandler::WriteDumpForCaller()
 {

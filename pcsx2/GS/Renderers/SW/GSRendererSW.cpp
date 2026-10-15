@@ -7,6 +7,9 @@
 #include "GS/GSUtil.h"
 
 #include "common/StringUtil.h"
+#if defined(_WIN32) && defined(PCSX2_EXPERIMENTAL_SSE2)
+#include "common/CrashHandler.h"
+#endif
 
 MULTI_ISA_UNSHARED_IMPL;
 
@@ -24,10 +27,19 @@ static constexpr GSVector4 s_pos_scale = GSVector4::cxpr(1.0f / 16, 1.0f / 16, 1
 GSRendererSW::GSRendererSW(int threads)
 	: GSRenderer(), m_fzb(NULL)
 {
+#if defined(_WIN32) && defined(PCSX2_EXPERIMENTAL_SSE2)
+	CrashHandler::TraceSSE2Stage("GS SW: GSRendererSW constructor entered");
+#endif
 	m_nativeres = true; // ignore ini, sw is always native
 
 	m_tc = std::make_unique<GSTextureCacheSW>();
+#if defined(_WIN32) && defined(PCSX2_EXPERIMENTAL_SSE2)
+	CrashHandler::TraceSSE2Stage("GS SW: GSTextureCacheSW allocated");
+#endif
 	m_rl = GSRasterizerList::Create(threads);
+#if defined(_WIN32) && defined(PCSX2_EXPERIMENTAL_SSE2)
+	CrashHandler::TraceSSE2Stage("GS SW: GSRasterizerList created");
+#endif
 
 	m_output = (u8*)_aligned_malloc(1024 * 1024 * sizeof(u32), VECTOR_ALIGNMENT);
 
@@ -426,6 +438,11 @@ MULTI_ISA_UNSHARED_END
 
 void GSRendererSW::Draw()
 {
+#if defined(_WIN32) && defined(PCSX2_EXPERIMENTAL_SSE2)
+	static volatile LONG s_first_draw = 0;
+	if (InterlockedCompareExchange(&s_first_draw, 1, 0) == 0)
+		CrashHandler::TraceSSE2Stage("GS SW: GSRendererSW::Draw first call");
+#endif
 	const GSDrawingContext* context = m_context;
 
 	switch (m_vt.m_primclass)

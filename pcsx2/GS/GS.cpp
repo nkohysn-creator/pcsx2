@@ -13,6 +13,9 @@
 #include "GS/GSPerfMon.h"
 #include "GS/GSUtil.h"
 #include "GS/MultiISA.h"
+#if defined(_WIN32) && defined(PCSX2_EXPERIMENTAL_SSE2)
+#include "common/CrashHandler.h"
+#endif
 #include "Host.h"
 #include "Input/InputManager.h"
 #include "MTGS.h"
@@ -202,10 +205,18 @@ static void GSClampUpscaleMultiplier(Pcsx2Config::GSOptions& config)
 
 static bool OpenGSRenderer(GSRendererType renderer, u8* basemem)
 {
+#if defined(_WIN32) && defined(PCSX2_EXPERIMENTAL_SSE2)
+	if (renderer == GSRendererType::SW)
+		CrashHandler::TraceSSE2Stage("GS SW: OpenGSRenderer entered, before GSVertexSW::InitStatic");
+#endif
 	// Must be done first, initialization routines in GSState use GSIsHardwareRenderer().
 	GSCurrentRenderer = renderer;
 
 	GSVertexSW::InitStatic();
+#if defined(_WIN32) && defined(PCSX2_EXPERIMENTAL_SSE2)
+	if (renderer == GSRendererType::SW)
+		CrashHandler::TraceSSE2Stage("GS SW: GSVertexSW::InitStatic complete");
+#endif
 
 	if (renderer == GSRendererType::Null)
 	{
@@ -218,13 +229,27 @@ static bool OpenGSRenderer(GSRendererType renderer, u8* basemem)
 	}
 	else
 	{
+#if defined(_WIN32) && defined(PCSX2_EXPERIMENTAL_SSE2)
+		CrashHandler::TraceSSE2Stage("GS SW: about to call makeGSRendererSW");
+#endif
 		g_gs_renderer = std::unique_ptr<GSRenderer>(MULTI_ISA_SELECT(makeGSRendererSW)(GSConfig.SWExtraThreads));
+#if defined(_WIN32) && defined(PCSX2_EXPERIMENTAL_SSE2)
+		CrashHandler::TraceSSE2Stage("GS SW: makeGSRendererSW returned");
+#endif
 	}
 
+#if defined(_WIN32) && defined(PCSX2_EXPERIMENTAL_SSE2)
+	if (renderer == GSRendererType::SW)
+		CrashHandler::TraceSSE2Stage("GS SW: before SetRegsMem and ResetPCRTC");
+#endif
 	g_gs_renderer->SetRegsMem(basemem);
 	g_gs_renderer->ResetPCRTC();
 	g_gs_renderer->UpdateRenderFixes();
 	g_perfmon.Reset();
+#if defined(_WIN32) && defined(PCSX2_EXPERIMENTAL_SSE2)
+	if (renderer == GSRendererType::SW)
+		CrashHandler::TraceSSE2Stage("GS SW: OpenGSRenderer completed");
+#endif
 	return true;
 }
 
@@ -242,6 +267,10 @@ static void CloseGSRenderer()
 bool GSreopen(bool recreate_device, bool recreate_renderer, GSRendererType new_renderer,
 	std::optional<const Pcsx2Config::GSOptions*> old_config)
 {
+#if defined(_WIN32) && defined(PCSX2_EXPERIMENTAL_SSE2)
+	if (new_renderer == GSRendererType::SW)
+		CrashHandler::TraceSSE2Stage("GSreopen: switching to SW renderer");
+#endif
 	Console.WriteLn("Reopening GS with %s device", recreate_device ? "new" : "existing");
 
 	g_gs_renderer->Flush(GSState::GSFlushReason::GSREOPEN);

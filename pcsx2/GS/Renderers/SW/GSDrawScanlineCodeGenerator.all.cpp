@@ -331,6 +331,7 @@ void GSDrawScanlineCodeGenerator::blend8r(const XYm& b, const XYm& a)
 		blend8(a, b);
 		movdqa(b, a);
 	}
+}
 
 void GSDrawScanlineCodeGenerator::split16_2x8(const XYm& l, const XYm& h, const XYm& src)
 {

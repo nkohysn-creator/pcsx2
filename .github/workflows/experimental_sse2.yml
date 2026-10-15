@@ -1,0 +1,21 @@
+name: Experimental SSE2 Windows Build
+
+on:
+  push:
+    branches:
+      - experimental-sse2-v2.8.2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  experimental_sse2:
+    name: Experimental PCSX2 SSE2 Clang CMake
+    uses: ./.github/workflows/windows_build_qt.yml
+    with:
+      jobName: "Experimental SSE2 - compile diagnostic"
+      artifactPrefixName: "PCSX2-2.8.2-EXPERIMENTAL-SSE2"
+      configuration: CMake
+      buildSystem: cmake
+      cmakeFlags: -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl -DPCSX2_EXE_NAME=pcsx2-qt-sse2 -DPCSX2_EXPERIMENTAL_SSE2=ON -DENABLE_TESTS=OFF -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF

@@ -38,3 +38,11 @@ Do **not** merge the preparation branch into the auto-build branch before comple
 - SSE2 gated replacement: MULPS, PSHUFD, ADDSS, PSLLDQ, PSRLDQ, scratch register acquired/released from microVU allocator. Retains register output lane masks and preserves PQ other lanes.
 - Broad review of `pcsx2/x86/microVU_*.inl` found no other active DPPS emission; legacy DPPS is retained only under non-experimental preprocessor branch.
 - Build-only validation still required; game/runtime test on Phenom II pending. Do not mistake the BIOS success for complete VU1 support.
+
+## Build 12 preparation — GS software JIT SSE4.1 texture instructions
+- October 15, 2026 software renderer crash: EXCEPTION_ILLEGAL_INSTRUCTION (0xC000001D), PC 00000271F4F30334, MEM_PRIVATE JIT.
+- Decoded: PEXTRD EAX,XMM0,1 (66 0F 3A 16 C0 01), immediately followed by PINSRD XMM5,[R13+RAX*4],1 (66 41 0F 3A 22 6C 85 00 01).
+- Source: `GS/Renderers/SW/GSDrawScanlineCodeGenerator.all.cpp`, texture fetch `ReadTexelImpl`.
+- SSE2-gated replacements of all PEXTRD/PINSRD call sites in that source, plus GSSetupPrim PEXTRD.
+- These replacements use unaligned XMM stack stores/loads and preserve live GPR/XMM state; potentially slower than native SSE4.1.
+- No validation on Phenom II yet. Additional SW renderer SSE4.1 operations are possible; preserve last working hardware-rendering build 11.

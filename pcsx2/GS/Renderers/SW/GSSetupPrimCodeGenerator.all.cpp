@@ -305,7 +305,17 @@ void GSSetupPrimCodeGenerator::Depth_YMM()
 
 			movaps(xmm0, ptr[rax + offsetof(GSVertexSW, p)]);
 			cvttps2dq(xmm0, xmm0);
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+			push(rax);
+			sub(rsp, 16);
+			movups(xword[rsp], xmm0);
+			mov(eax, dword[rsp + 12]);
+			mov(_rip_local(p.f), eax);
+			add(rsp, 16);
+			pop(rax);
+#else
 			pextrd(_rip_local(p.f), xmm0, 3);
+#endif
 		}
 
 		if (m_en.z)

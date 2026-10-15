@@ -3152,13 +3152,34 @@ void GSDrawScanlineCodeGenerator::WritePixel(const Xmm& src, const AddressReg& a
 			if (j == 0)
 				movd(dst, src);
 			else
+			{
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+				push(rax);
+				sub(rsp, 16);
+				movups(xword[rsp], src);
+				mov(eax, dword[rsp + j * 4]);
+				mov(dst, eax);
+				add(rsp, 16);
+				pop(rax);
+#else
 				pextrd(dst, src, j);
+#endif
+			}
 			break;
 		case 1:
 			if (j == 0)
 				movd(eax, src);
 			else
+			{
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+				sub(rsp, 16);
+				movups(xword[rsp], src);
+				mov(eax, dword[rsp + j * 4]);
+				add(rsp, 16);
+#else
 				pextrd(eax, src, j);
+#endif
+			}
 			xor_(eax, dst);
 			and_(eax, 0xffffff);
 			xor_(dst, eax);
@@ -3362,7 +3383,16 @@ void GSDrawScanlineCodeGenerator::ReadTexelImpl(const Xmm& dst, const Xmm& addr,
 	if (i == 0)
 		movd(eax, addr);
 	else
+	{
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+		sub(rsp, 16);
+		movups(xword[rsp], addr);
+		mov(eax, dword[rsp + i * 4]);
+		add(rsp, 16);
+#else
 		pextrd(eax, addr, i);
+#endif
+	}
 
 	// If clut, load the value as a byte index
 	if (m_sel.tlu)
@@ -3371,5 +3401,18 @@ void GSDrawScanlineCodeGenerator::ReadTexelImpl(const Xmm& dst, const Xmm& addr,
 	if (i == 0 && !preserveDst)
 		movd(dst, src);
 	else
+	{
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+		push(rax);
+		sub(rsp, 16);
+		movups(xword[rsp], dst);
+		mov(eax, src);
+		mov(dword[rsp + i * 4], eax);
+		movups(dst, xword[rsp]);
+		add(rsp, 16);
+		pop(rax);
+#else
 		pinsrd(dst, src, i);
+#endif
+	}
 }

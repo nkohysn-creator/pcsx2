@@ -218,6 +218,21 @@ void GSDrawScanlineCodeGenerator::lerp16_4(const XYm& a, const XYm& b, const XYm
 
 void GSDrawScanlineCodeGenerator::mix16(const XYm& a, const XYm& b, const XYm& temp)
 {
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	if (!hasAVX)
+	{
+		// SSE4.1 PBLENDW 0xAA: odd words from b, even words from a.
+		if (a != b)
+		{
+			pcmpeqd(temp, temp);
+			psrld(temp, 16); // FFFF in even word; XOR blend selects a if 1, b if 0
+			pxor(a, b);
+			pand(a, temp);
+			pxor(a, b);
+		}
+		return;
+	}
+#endif
 	pblendw(a, b, 0xaa);
 }
 
@@ -226,7 +241,17 @@ void GSDrawScanlineCodeGenerator::clamp16(const XYm& a, const XYm& temp)
 	if (isXmm)
 	{
 		packuswb(a, a);
-		pmovzxbw(a, a);
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+		if (!hasAVX)
+		{
+			pxor(temp, temp);
+			punpcklbw(a, temp); // SSE2 zero extend packed low bytes
+		}
+		else
+#endif
+		{
+			pmovzxbw(a, a);
+		}
 	}
 	else
 	{
@@ -268,6 +293,30 @@ void GSDrawScanlineCodeGenerator::blendr(const XYm& b, const XYm& a, const XYm& 
 
 void GSDrawScanlineCodeGenerator::blend8(const XYm& a, const XYm& b)
 {
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	if (!hasAVX)
+	{
+		if (a == b)
+			return;
+		// PBLENDVB takes each byte's sign bit in implicit XMM0 mask.
+		// A scratch XMM is saved and restored because the JIT owns all registers.
+		int scratch_id = 15;
+		while (scratch_id == a.getIdx() || scratch_id == b.getIdx())
+			--scratch_id;
+		const Xmm scratch(scratch_id);
+		sub(rsp, 16);
+		movups(xword[rsp], scratch);
+		pxor(scratch, scratch);
+		actual.pcmpgtb(scratch, xmm0); // FF where mask high-bit is set
+		pxor(a, b);
+		actual.pandn(scratch, a);       // (~mask) & (original_a ^ b)
+		movdqa(a, scratch);
+		pxor(a, b);                    // choose b if masked, a otherwise
+		movups(scratch, xword[rsp]);
+		add(rsp, 16);
+		return;
+	}
+#endif
 	pblendvb(a, b /*, xym0 */);
 }
 
@@ -279,10 +328,9 @@ void GSDrawScanlineCodeGenerator::blend8r(const XYm& b, const XYm& a)
 	}
 	else
 	{
-		pblendvb(a, b);
+		blend8(a, b);
 		movdqa(b, a);
 	}
-}
 
 void GSDrawScanlineCodeGenerator::split16_2x8(const XYm& l, const XYm& h, const XYm& src)
 {
@@ -1591,7 +1639,7 @@ void GSDrawScanlineCodeGenerator::Wrap(const XYm& uv0, const XYm& uv1)
 			pmaxsw(uv, min);
 			pminsw(uv, max);
 			// clamp.blend8(repeat, m_local.gd->t.mask);
-			pblendvb(uv, tmp /*, xym0==mask */);
+			blend8(uv, tmp); // SSE2-compatible byte blend
 		}
 	}
 }
@@ -2134,7 +2182,7 @@ void GSDrawScanlineCodeGenerator::WrapLOD(const XYm& uv0, const XYm& uv1)
 			pmaxsw(uv, min);
 			pminsw(uv, max);
 			// clamp.blend8(repeat, m_local.gd->t.mask);*
-			pblendvb(uv, tmp /*, xym0==mask */);
+			blend8(uv, tmp); // SSE2-compatible byte blend
 		}
 	}
 }

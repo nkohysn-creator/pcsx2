@@ -269,6 +269,81 @@ public:
 	AFORWARD(2, orps,      ARGS_XO)
 	AFORWARD(2, packssdw,  ARGS_XO)
 	AFORWARD(2, packusdw,  ARGS_XO)
+#if defined(PCSX2_EXPERIMENTAL_SSE2)
+	// When both operands are XMM registers, this more specific overload
+	// replaces the SSE4.1 PACKUSDW emitter on older SSE2-only CPUs.
+	void packusdw(const Xmm& dst, const Xmm& src)
+	{
+		if (hasAVX)
+		{
+			actual.vpackusdw(dst, dst, src);
+			return;
+		}
+
+		// Correct signed dword -> unsigned word saturation for all 32-bit
+		// values. Clamp to [0,65535], subtract the 0x8000 bias, use the
+		// SSE2 signed pack, then undo the bias on the packed words.
+		// Preserve two unrelated XMMs; the renderer may use every register.
+		int t0_idx = 15;
+		while (t0_idx == dst.getIdx() || t0_idx == src.getIdx())
+			--t0_idx;
+		int t1_idx = t0_idx - 1;
+		while (t1_idx == dst.getIdx() || t1_idx == src.getIdx())
+			--t1_idx;
+		const Xmm t0(t0_idx), t1(t1_idx);
+
+		// LEA rather than SUB keeps the processor flags unchanged.
+		actual.lea(rsp, ptr[rsp - 64]);
+		actual.movups(xword[rsp], t0);
+		actual.movups(xword[rsp + 16], t1);
+
+		// Treat 'value' as a temporary XMM, clamp all four 32-bit lanes.
+		// t0 = max(value, 0); t1 = constant 65535, then compute the
+		// unsigned-saturated result in value.
+		auto clamp_dwords = [&](const Xmm& value) {
+			actual.pxor(t0, t0);
+			actual.pcmpgtd(t0, value);     // 0 > signed value?
+			actual.pandn(t0, value);      // max(value, 0)
+			actual.pcmpeqd(t1, t1);
+			actual.psrld(t1, 16);         // 0x0000FFFF
+			actual.movdqa(value, t0);
+			actual.pcmpgtd(value, t1);   // positive value > 65535?
+			actual.pand(t1, value);      // 65535 if overflow
+			actual.pandn(value, t0);     // original value if not overflow
+			actual.por(value, t1);
+		};
+
+		if (dst == src)
+		{
+			clamp_dwords(dst);
+			actual.movdqa(t0, dst);
+		}
+		else
+		{
+			clamp_dwords(dst);
+			actual.movups(xword[rsp + 32], dst);
+			actual.movdqa(dst, src);
+			clamp_dwords(dst);
+			actual.movups(xword[rsp + 48], dst);
+			actual.movups(dst, xword[rsp + 32]);
+			actual.movups(t0, xword[rsp + 48]);
+		}
+
+		actual.pcmpeqd(t1, t1);
+		actual.psrld(t1, 31);
+		actual.pslld(t1, 15);          // 0x00008000 in each dword
+		actual.psubd(dst, t1);
+		actual.psubd(t0, t1);
+		actual.packssdw(dst, t0);
+		actual.pcmpeqd(t1, t1);
+		actual.psllw(t1, 15);          // 0x8000 in each packed word
+		actual.pxor(dst, t1);
+
+		actual.movups(t0, xword[rsp]);
+		actual.movups(t1, xword[rsp + 16]);
+		actual.lea(rsp, ptr[rsp + 64]);
+	}
+#endif
 	AFORWARD(2, packuswb,  ARGS_XO)
 	AFORWARD(2, paddd,     ARGS_XO)
 	AFORWARD(2, paddusb,   ARGS_XO)
